@@ -1,5 +1,3 @@
-// Fichier: src/types/index.ts
-
 export interface Hotel {
   id: number;
   name: string;
@@ -9,7 +7,9 @@ export interface Hotel {
   rating: number;
   imageUrl: string;
   description?: string;
+  discount?: string;
   amenities?: { 
+    beds?: number; 
     baths: number; 
     sqft?: number; 
     kitchen?: number 

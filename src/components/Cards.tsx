@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Star, MapPin, Bath, SlidersHorizontal } from 'lucide-react'; // BedDouble retiré des imports
+import { Heart, Star, MapPin, Bath, SlidersHorizontal, BedDouble } from 'lucide-react';
 import { Hotel } from '../types';
 
 interface CardProps {
@@ -14,7 +14,6 @@ export const RecommendedCard = ({ hotel, onClick }: CardProps) => (
       <button className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow hover:text-red-500">
         <Heart className="w-4 h-4" />
       </button>
-      {/* SECTION DISCOUNT SUPPRIMÉE ICI */}
     </div>
     <div className="flex justify-between items-start mb-1">
       <h3 className="font-bold text-gray-800 text-lg">{hotel.name}</h3>
@@ -44,10 +43,10 @@ export const FavoriteCard = ({ hotel, onClick }: CardProps) => (
     <div>
       <h3 className="text-xl font-bold text-gray-900 mb-1">{hotel.name}</h3>
       <p className="text-gray-500 text-sm mb-3 flex items-center gap-1"><MapPin className="w-4 h-4" /> {hotel.location}</p>
-      
-      {/* Amenities Row - Beds retiré */}
       <div className="flex gap-6 text-gray-600 text-sm font-medium">
-         {/* SECTION BEDS SUPPRIMÉE ICI */}
+         {hotel.amenities?.beds && (
+            <span className="flex items-center gap-2"><BedDouble className="w-5 h-5 text-gray-400" /> {hotel.amenities.beds} Beds</span>
+         )}
          <span className="flex items-center gap-2"><Bath className="w-5 h-5 text-gray-400" /> {hotel.amenities?.baths} Baths</span>
          {hotel.amenities?.sqft && (
            <span className="flex items-center gap-2"><SlidersHorizontal className="w-4 h-4 text-gray-400 rotate-90" /> {hotel.amenities.sqft} sqft</span>
