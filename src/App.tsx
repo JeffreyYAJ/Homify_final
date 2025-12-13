@@ -2,34 +2,52 @@
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
 
-// Imports des composants
+// Imports
 import { BottomNav } from './components/BottomNav';
 import HomeScreen from './screens/HomeScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
 import PropertyDetailsScreen from './screens/PropertyDetailsScreen';
-import ProfileScreen from './screens/ProfileScreen'; // <--- 1. AJOUTER CET IMPORT
+import ProfileScreen from './screens/ProfileScreen';
+import ChatScreen from './screens/ChatScreen'; // <--- Import du Chat
 import { Hotel } from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('Home');
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+  
+  // Nouvel état pour savoir si on est dans le chat
+  const [isChatting, setIsChatting] = useState(false); 
 
   const renderContent = () => {
-    if (selectedHotel) {
-      return <PropertyDetailsScreen hotel={selectedHotel} onBack={() => setSelectedHotel(null)} />;
+    // 1. Si on est en mode Chat (Priorité absolue)
+    if (isChatting) {
+      return (
+        <ChatScreen 
+          onBack={() => setIsChatting(false)} 
+          agentName="John Doe" 
+        />
+      );
     }
 
-    // Sinon navigation principale
+    // 2. Si un hôtel est sélectionné (Détails)
+    if (selectedHotel) {
+      return (
+        <PropertyDetailsScreen 
+          hotel={selectedHotel} 
+          onBack={() => setSelectedHotel(null)} 
+          onBookNow={() => setIsChatting(true)} // <--- Lance le chat
+        />
+      );
+    }
+
+    // 3. Navigation Principale
     switch (activeTab) {
       case 'Home':
         return <HomeScreen onHotelClick={setSelectedHotel} />;
-      
       case 'Favorites':
         return <FavoritesScreen onHotelClick={setSelectedHotel} />;
-        
       case 'Profile':
-        return <ProfileScreen />; // <--- 2. AJOUTER CETTE LIGNE
-        
+        return <ProfileScreen />;
       case 'Search':
       case 'AI':
         return (
@@ -49,7 +67,8 @@ export default function App() {
         {renderContent()}
       </div>
       
-      {!selectedHotel && (
+      {/* On cache le footer si on est dans les détails ou dans le chat */}
+      {!selectedHotel && !isChatting && (
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
     </div>

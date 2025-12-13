@@ -10,8 +10,13 @@ export interface Hotel {
   discount?: string;
   amenities?: { 
     beds?: number; 
-    baths: number; 
+    baths?: number; 
     sqft?: number; 
     kitchen?: number 
   };
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  isFavorite: boolean;
 }
