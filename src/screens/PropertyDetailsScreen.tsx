@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Share2, Heart, Star, MapPin, Bath, Utensils, MessageCircle, MessageSquare } from 'lucide-react'; 
 import { Hotel } from '../types';
 import { PropertyImage } from '../components/PropertyImage';
+import { PropertyMap } from '../components/PropertyMap';
 
 interface DetailsProps {
   hotel: Hotel;
@@ -84,6 +85,19 @@ export default function PropertyDetailsScreen({ hotel, onBack, onBookNow }: Deta
           <h3 className="font-bold text-gray-900 mb-2">Description</h3>
           <p className="text-gray-500 text-sm leading-relaxed mb-6">{hotel.description || "No description available."}</p>
 
+          {/* --- INTEGRATION DE LA CARTE ICI --- */}
+          {hotel.coordinates && (
+            <div className="mb-8">
+                <h3 className="font-bold text-gray-900 mb-2 mt-6">Localisation</h3>
+                <PropertyMap 
+                    lat={hotel.coordinates.lat} 
+                    lng={hotel.coordinates.lng} 
+                    address={hotel.location} 
+                />
+                <p className="text-xs text-gray-400 mt-2">Le cercle indique la zone approximative de la propriété.</p>
+            </div>
+          )}
+          
           <div className="hidden md:flex justify-between items-center pt-6 border-t">
               <div><span className="text-sm text-gray-500">Total Price</span><div className="flex items-baseline gap-1"><span className="text-2xl font-bold text-blue-900">${hotel.price}</span><span className="text-sm text-gray-400">/night</span></div></div>
               
