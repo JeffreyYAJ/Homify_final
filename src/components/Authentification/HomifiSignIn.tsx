@@ -37,7 +37,7 @@ const HomifiSignIn = () => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
 
         console.log('Form submitted:', formData);
-        alert('Sign in successful!');
+        // alert('Sign in successful!');
         window.location.href = '/dashboard';
       } else {
         setError('Invalid login response from server.');

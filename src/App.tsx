@@ -1,7 +1,6 @@
 // Fichier: src/App.tsx
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
-
 // Imports
 import { BottomNav } from './components/BottomNav';
 import HomeScreen from './screens/HomeScreen';
@@ -10,6 +9,7 @@ import PropertyDetailsScreen from './screens/PropertyDetailsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ChatScreen from './screens/ChatScreen'; // <--- Import du Chat
 import { Hotel } from './types';
+import MainAi from './screens/Aisection/MainAi';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('Home');
@@ -49,13 +49,8 @@ export default function App() {
       case 'Profile':
         return <ProfileScreen />;
       case 'Search':
-      case 'AI':
-        return (
-          <div className="flex flex-col items-center justify-center h-screen text-gray-400">
-            <User className="w-16 h-16 mb-4 opacity-20" />
-            <p>Page {activeTab} en construction</p>
-          </div>
-        );
+      case 'Assist':
+        return <MainAi/>
       default:
         return <HomeScreen onHotelClick={setSelectedHotel} />;
     }
@@ -63,11 +58,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800">
-      <div className="max-w-7xl mx-auto pt-6 md:pt-10">
+      <div className="pt-6 md:pt-10 md:ml-64 md:mr-6">
         {renderContent()}
       </div>
-      
-      {/* On cache le footer si on est dans les détails ou dans le chat */}
+
+      {/* On cache la navigation si on est dans les détails ou dans le chat */}
       {!selectedHotel && !isChatting && (
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
