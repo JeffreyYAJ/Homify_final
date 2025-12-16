@@ -7,7 +7,7 @@ import HomifiSignIn from "./components/Authentification/HomifiSignIn";
 import HomifiSignUp from "./components/Authentification/HomifiSignUp";
 import ForgotPassword from "./components/Authentification/ForgotPassword";
 import "./index.css";
-
+import ResetPass from "./components/Authentification/ResetPass";
 function Root() {
   // Example auth check — replace with your real logic
   const isAuthenticated = localStorage.getItem("access_token") !== null;
@@ -26,6 +26,7 @@ function Root() {
               <Route path="/signin" element={<HomifiSignIn />} />
               <Route path="/signup" element={<HomifiSignUp />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path =  "/Reset-passode" element= {<ResetPass/>} />
               <Route path="/" element={<AuthPage />} />
               <Route path="*" element={<Navigate to="/signin" replace />} />
             </>
