@@ -1,24 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Headphones, MoreVertical, Sparkles } from 'lucide-react';
+import { Send, Headphones, MoreVertical, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Message {
   id: number;
   text: string;
   sender: 'user' | 'ai';
   timestamp: Date;
+  intent?: string;
 }
 
-interface ChatSupportProps {
-  n8nWebhookUrl?: string;
-}
-
-const ChatSupport: React.FC<ChatSupportProps> = ({ 
-  n8nWebhookUrl = 'https://your-n8n-instance.com/webhook/chat' 
-}) => {
+const ChatSupport = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Replace with your n8n webhook URL
+  const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook/chat';
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -33,7 +32,7 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
   useEffect(() => {
     const welcomeMessage: Message = {
       id: 1,
-      text: 'Hello! 👋 I\'m your AI assistant. How can I help you with your property search today?',
+      text: 'Hello! 👋 I\'m your AI real estate assistant. I can help you find properties, analyze markets, calculate mortgages, and answer any questions about real estate. How can I assist you today?',
       sender: 'ai',
       timestamp: new Date()
     };
@@ -43,7 +42,7 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
   // Send message to n8n webhook
   const sendMessageToN8n = async (message: string) => {
     try {
-      const response = await fetch(n8nWebhookUrl, {
+      const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,20 +50,28 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
         body: JSON.stringify({
           message: message,
           timestamp: new Date().toISOString(),
-          userId: 'user-123',
+          userId: `user-${Date.now()}`,
           conversationId: `conv-${Date.now()}`
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.response || data.message || 'I received your message. How else can I assist you?';
+      
+      if (!data.response) {
+        throw new Error('Invalid response from server');
+      }
+
+      return {
+        response: data.response,
+        intent: data.intent || 'general'
+      };
     } catch (error) {
       console.error('Error sending message to n8n:', error);
-      return 'I apologize, but I\'m having trouble connecting right now. Please try again in a moment.';
+      throw error;
     }
   };
 
@@ -85,23 +92,36 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
+    setError('');
 
-    // Simulate slight delay for more natural conversation
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      // Get AI response from n8n
+      const { response: aiResponse, intent } = await sendMessageToN8n(userMessageText);
 
-    // Get AI response from n8n
-    const aiResponse = await sendMessageToN8n(userMessageText);
+      // Add AI response
+      const aiMessage: Message = {
+        id: Date.now() + 1,
+        text: aiResponse,
+        sender: 'ai',
+        timestamp: new Date(),
+        intent: intent
+      };
 
-    // Add AI response
-    const aiMessage: Message = {
-      id: Date.now() + 1,
-      text: aiResponse,
-      sender: 'ai',
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, aiMessage]);
-    setIsLoading(false);
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (err) {
+      setError('Unable to get a response. Please check your connection and try again.');
+      
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        text: 'I apologize, but I\'m having trouble connecting right now. Please try again in a moment.',
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle Enter key to send
@@ -118,7 +138,7 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white md:mb-4">
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
@@ -136,7 +156,7 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
               <h2 className="font-bold text-gray-900 text-base">AI Assistant</h2>
               <p className="text-xs text-green-600 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-600 rounded-full animate-pulse"></span>
-                Online - Always here to help
+                Online - Powered by n8n
               </p>
             </div>
           </div>
@@ -147,19 +167,22 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
         </button>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center gap-2 animate-in fade-in duration-300">
+          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+          <p className="text-xs text-red-600 flex-1">{error}</p>
+          <button 
+            onClick={() => setError('')}
+            className="ml-auto text-red-600 hover:text-red-800 transition"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-gradient-to-b from-gray-50 to-white">
-        {messages.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Headphones className="w-8 h-8 text-purple-600" />
-              </div>
-              <p className="text-gray-600 text-sm">Start a conversation with our AI assistant</p>
-            </div>
-          </div>
-        )}
-
         {messages.map((message) => (
           <div
             key={message.id}
@@ -179,11 +202,18 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
               }`}
             >
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
-              <p className={`text-xs mt-1 ${
-                message.sender === 'user' ? 'text-blue-100' : 'text-gray-400'
-              }`}>
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
+              <div className="flex items-center justify-between mt-1 gap-2 flex-wrap">
+                <p className={`text-xs ${
+                  message.sender === 'user' ? 'text-blue-100' : 'text-gray-400'
+                }`}>
+                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+                {message.intent && message.sender === 'ai' && (
+                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                    {message.intent.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -207,30 +237,36 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
       </div>
 
       {/* Quick Suggestions */}
-      {messages.length <= 1 && (
-        <div className="px-4 py-3 bg-white border-t border-gray-100">
+      {messages.length <= 1 && !isLoading && (
+        <div className="px-4 py-3 bg-white border-t border-gray-100 animate-in fade-in duration-500">
           <p className="text-xs text-gray-500 mb-2 flex items-center gap-1 font-medium">
-            <Headphones className="w-3 h-3" />
+            <Sparkles className="w-3 h-3" />
             Quick suggestions to get started
           </p>
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             <button 
-              onClick={() => handleSuggestionClick('Find properties in my area')}
-              className="px-4 py-2 bg-purple-50 text-purple-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-purple-100 transition border border-purple-200"
+              onClick={() => handleSuggestionClick('Find properties in San Francisco')}
+              className="px-4 py-2 bg-purple-50 text-purple-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-purple-100 transition border border-purple-200 hover:shadow-sm"
             >
               🏠 Find properties
             </button>
             <button 
-              onClick={() => handleSuggestionClick('Calculate my mortgage payment')}
-              className="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-blue-100 transition border border-blue-200"
+              onClick={() => handleSuggestionClick('Show me market trends for Miami')}
+              className="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-blue-100 transition border border-blue-200 hover:shadow-sm"
+            >
+              📈 Market analysis
+            </button>
+            <button 
+              onClick={() => handleSuggestionClick('Calculate mortgage for $500K home')}
+              className="px-4 py-2 bg-green-50 text-green-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-green-100 transition border border-green-200 hover:shadow-sm"
             >
               💰 Calculate mortgage
             </button>
             <button 
-              onClick={() => handleSuggestionClick('Show me market trends')}
-              className="px-4 py-2 bg-green-50 text-green-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-green-100 transition border border-green-200"
+              onClick={() => handleSuggestionClick('Tell me about neighborhoods in Austin')}
+              className="px-4 py-2 bg-orange-50 text-orange-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-orange-100 transition border border-orange-200 hover:shadow-sm"
             >
-              📈 Market trends
+              📍 Neighborhoods
             </button>
           </div>
         </div>
@@ -244,9 +280,10 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask me anything about properties..."
+              placeholder="Ask me anything about real estate..."
               rows={1}
-              className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none text-sm max-h-32"
+              disabled={isLoading}
+              className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none text-sm max-h-32 disabled:cursor-not-allowed disabled:opacity-50"
               style={{ minHeight: '44px' }}
             />
           </div>
@@ -259,7 +296,7 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-2 text-center">
-          Powered by AI • Press Enter to send
+          Powered by Claude AI via n8n • Press Enter to send
         </p>
       </div>
 
@@ -274,6 +311,13 @@ const ChatSupport: React.FC<ChatSupportProps> = ({
         }
         .animate-in {
           animation: fade-in 0.3s ease-out, slide-in-from-bottom 0.3s ease-out;
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        .animate-bounce {
+          animation: bounce 1s ease-in-out infinite;
         }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;

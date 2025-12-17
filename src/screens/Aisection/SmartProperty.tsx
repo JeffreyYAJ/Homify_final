@@ -27,7 +27,7 @@ const SmartPropertySearch = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [n8nWorkflowUrl] = useState('http://localhost:5678/webhook-test/property-search');
+  const [n8nWorkflowUrl] = useState('http://localhost:5678/webhook/property-search');
 
   // Get user's GPS location
   const getUserLocation = () => {
@@ -111,6 +111,7 @@ const SmartPropertySearch = () => {
   };
 
   // Search properties via n8n workflow
+  // Search properties via n8n workflow
   const handleSearch = async () => {
     // Si pas de coordonnées mais un lieu saisi, géocoder d'abord
     if (!userLocation && location) {
@@ -126,6 +127,14 @@ const SmartPropertySearch = () => {
 
     setLoading(true);
     setShowRecommendations(true);
+    setProperties([]);
+
+    // Timeout de 30 secondes
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setProperties([]);
+      alert('Aucune maison trouvée. Veuillez réessayer avec des critères différents.');
+    }, 30000);
 
     try {
       const response = await fetch(n8nWorkflowUrl, {
@@ -143,11 +152,21 @@ const SmartPropertySearch = () => {
         }),
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         throw new Error('Failed to fetch properties');
       }
 
       const data = await response.json();
+      
+      // Vérifier si des propriétés ont été trouvées
+      if (!data.properties || data.properties.length === 0) {
+        setLoading(false);
+        setProperties([]);
+        alert('Aucune maison trouvée. Veuillez réessayer avec des critères différents.');
+        return;
+      }
       
       // Transform the data from n8n workflow
       const transformedProperties: Property[] = data.properties.map((prop: any) => ({
@@ -164,65 +183,13 @@ const SmartPropertySearch = () => {
       }));
 
       setProperties(transformedProperties);
-    } catch (error) {
-      console.error('Error fetching properties:', error);
-      
-      // Fallback to demo data if n8n fails
-      const demoProperties: Property[] = [
-        {
-          id: 1,
-          images: [
-            'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=800&h=600&fit=crop'
-          ],
-          price: 625000,
-          beds: 3,
-          baths: 2,
-          sqft: 1850,
-          location: 'Bastos, Yaoundé',
-          status: 'Available',
-          tags: ['Bonnes écoles', 'Proche transport'],
-          matchScore: 95
-        },
-        {
-          id: 2,
-          images: [
-            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=800&h=600&fit=crop'
-          ],
-          price: 590000,
-          beds: 3,
-          baths: 3,
-          sqft: 1950,
-          location: 'Essos, Yaoundé',
-          status: 'Nearby',
-          tags: ['Quartier familial', 'Moderne'],
-          matchScore: 92
-        },
-        {
-          id: 3,
-          images: [
-            'https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=800&h=600&fit=crop'
-          ],
-          price: 480000,
-          beds: 2,
-          baths: 2,
-          sqft: 1450,
-          location: 'Mvan, Yaoundé',
-          status: 'Available',
-          tags: ['Calme', 'Sécurisé'],
-          matchScore: 88
-        }
-      ];
-      
-      setProperties(demoProperties);
-      alert('Connexion au serveur impossible. Affichage des propriétés de démonstration.');
-    } finally {
       setLoading(false);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('Error fetching properties:', error);
+      setLoading(false);
+      setProperties([]);
+      alert("Connexion du serveur absente ou aucune maison trouvée");
     }
   };
 
