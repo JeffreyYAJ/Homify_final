@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Headphones, MoreVertical, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, Headphones, MoreVertical, Sparkles, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react';
 
 interface Message {
   id: number;
@@ -7,6 +7,10 @@ interface Message {
   sender: 'user' | 'ai';
   timestamp: Date;
   intent?: string;
+  marketData?: any;
+  hasAction?: boolean;
+  actionType?: 'market_analysis' | 'property_search' | 'mortgage_calc';
+  actionData?: any;
 }
 
 const ChatSupport = () => {
@@ -17,7 +21,7 @@ const ChatSupport = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Replace with your n8n webhook URL
-  const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook/chat';
+  const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook/chatbot';
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -61,17 +65,63 @@ const ChatSupport = () => {
 
       const data = await response.json();
       
-      if (!data.response) {
+      // Handle n8n response format: [{ reply: { message: "..." }, timestamp: "..." }]
+      let aiResponse = '';
+      let intent = 'general';
+      let marketData = null;
+
+      // Check if data is an array
+      if (Array.isArray(data) && data.length > 0) {
+        const firstItem = data[0];
+        aiResponse = firstItem.reply?.message || firstItem.response || '';
+        intent = firstItem.reply?.intent || firstItem.intent || 'general';
+        marketData = firstItem.reply?.marketData || firstItem.marketData || null;
+      } 
+      // Check if data has reply.message structure
+      else if (data.reply && data.reply.message) {
+        aiResponse = data.reply.message;
+        intent = data.reply.intent || data.intent || 'general';
+        marketData = data.reply.marketData || data.marketData || null;
+      }
+      // Fallback to previous format
+      else if (data.response) {
+        aiResponse = data.response;
+        intent = data.intent || 'general';
+        marketData = data.marketData || null;
+      }
+      
+      if (!aiResponse) {
         throw new Error('Invalid response from server');
       }
 
       return {
-        response: data.response,
-        intent: data.intent || 'general'
+        response: aiResponse,
+        intent: intent,
+        marketData: marketData
       };
     } catch (error) {
       console.error('Error sending message to n8n:', error);
       throw error;
+    }
+  };
+
+  // Handle action buttons (View Details, Calculate, etc.)
+  const handleAction = (message: Message) => {
+    if (message.actionType === 'market_analysis' && message.marketData) {
+      // Store market data in sessionStorage for the next page
+      sessionStorage.setItem('marketAnalysisData', JSON.stringify(message.marketData));
+      // Redirect to market analysis page
+      window.location.href = '/market-analysis';
+    } else if (message.actionType === 'property_search' && message.actionData) {
+      // Store search criteria
+      sessionStorage.setItem('propertySearchCriteria', JSON.stringify(message.actionData));
+      // Redirect to property search page
+      window.location.href = '/property-search';
+    } else if (message.actionType === 'mortgage_calc' && message.actionData) {
+      // Store mortgage data
+      sessionStorage.setItem('mortgageData', JSON.stringify(message.actionData));
+      // Redirect to mortgage calculator page
+      window.location.href = '/mortgage-calculator';
     }
   };
 
@@ -96,7 +146,26 @@ const ChatSupport = () => {
 
     try {
       // Get AI response from n8n
-      const { response: aiResponse, intent } = await sendMessageToN8n(userMessageText);
+      const { response: aiResponse, intent, marketData } = await sendMessageToN8n(userMessageText);
+
+      // Determine if this message should have an action button
+      let hasAction = false;
+      let actionType: 'market_analysis' | 'property_search' | 'mortgage_calc' | undefined;
+      let actionData: any = null;
+
+      if (intent === 'market_analysis' && marketData) {
+        hasAction = true;
+        actionType = 'market_analysis';
+        actionData = marketData;
+      } else if (intent === 'property_search') {
+        hasAction = true;
+        actionType = 'property_search';
+        actionData = { query: userMessageText };
+      } else if (intent === 'mortgage_calculation') {
+        hasAction = true;
+        actionType = 'mortgage_calc';
+        actionData = { query: userMessageText };
+      }
 
       // Add AI response
       const aiMessage: Message = {
@@ -104,7 +173,11 @@ const ChatSupport = () => {
         text: aiResponse,
         sender: 'ai',
         timestamp: new Date(),
-        intent: intent
+        intent: intent,
+        marketData: marketData,
+        hasAction: hasAction,
+        actionType: actionType,
+        actionData: actionData
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -135,6 +208,41 @@ const ChatSupport = () => {
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: string) => {
     setInputText(suggestion);
+  };
+
+  // Get action button config based on action type
+  const getActionButton = (message: Message) => {
+    if (!message.hasAction || !message.actionType) return null;
+
+    const configs = {
+      market_analysis: {
+        text: 'View Full Analysis',
+        icon: <ArrowRight className="w-4 h-4" />,
+        color: 'from-blue-600 to-blue-700'
+      },
+      property_search: {
+        text: 'Search Properties',
+        icon: <ExternalLink className="w-4 h-4" />,
+        color: 'from-purple-600 to-purple-700'
+      },
+      mortgage_calc: {
+        text: 'Open Calculator',
+        icon: <ArrowRight className="w-4 h-4" />,
+        color: 'from-green-600 to-green-700'
+      }
+    };
+
+    const config = configs[message.actionType];
+
+    return (
+      <button
+        onClick={() => handleAction(message)}
+        className={`mt-3 px-4 py-2 bg-gradient-to-r ${config.color} text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2 hover:scale-105 active:scale-95`}
+      >
+        {config.text}
+        {config.icon}
+      </button>
+    );
   };
 
   return (
@@ -194,26 +302,31 @@ const ChatSupport = () => {
               </div>
             )}
             
-            <div
-              className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
-                message.sender === 'user'
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                  : 'bg-white text-gray-900 border border-gray-200'
-              }`}
-            >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
-              <div className="flex items-center justify-between mt-1 gap-2 flex-wrap">
-                <p className={`text-xs ${
-                  message.sender === 'user' ? 'text-blue-100' : 'text-gray-400'
-                }`}>
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                {message.intent && message.sender === 'ai' && (
-                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
-                    {message.intent.replace('_', ' ')}
-                  </span>
-                )}
+            <div className={`max-w-[75%] ${message.sender === 'user' ? '' : 'flex flex-col'}`}>
+              <div
+                className={`rounded-2xl px-4 py-3 shadow-sm ${
+                  message.sender === 'user'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                    : 'bg-white text-gray-900 border border-gray-200'
+                }`}
+              >
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
+                <div className="flex items-center justify-between mt-1 gap-2 flex-wrap">
+                  <p className={`text-xs ${
+                    message.sender === 'user' ? 'text-blue-100' : 'text-gray-400'
+                  }`}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  {message.intent && message.sender === 'ai' && (
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                      {message.intent.replace('_', ' ')}
+                    </span>
+                  )}
+                </div>
               </div>
+              
+              {/* Action Button */}
+              {message.sender === 'ai' && getActionButton(message)}
             </div>
           </div>
         ))}
